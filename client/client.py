@@ -33,7 +33,7 @@ def debug_req(req):
     if DEBUG_MODE:
         print("Request:", req)
 
-# Print Debug Request
+# Print Debug Response
 def debug_res(res):
     if DEBUG_MODE:
         print("Response:", res)
@@ -102,11 +102,10 @@ def main():
                 
                 # Send file_data
                 # - Read and Send Segmented File Line by Line
-                with open(file_name, "r") as file:
+                with open(file_name, "rb") as file:
                     lines = file.readlines()
                     for line in lines:
-                        file_data = line.encode()
-                        s.send(file_data)
+                        s.send(line)
 
                 # Receive Response from Server
                 # 1024 Represents Buffer Size in Bytes
@@ -146,7 +145,7 @@ def main():
                 # Receive Response from Server
                 # 1024 Represents Buffer Size in Bytes
                 data = s.recv(1024)
-                res = data.decode()
+                res = data #.decode()
 
                 debug_res(res)
 
@@ -154,10 +153,10 @@ def main():
                 res_code = res[0:3]
                 file_name_len = int(res[3:8], 2)
 
-                if res_code == "001":
-                    fn_end_ind = file_name_len + 7
+                if res_code == b"001":
+                    fn_end_ind = file_name_len + 8
                     fs_end_ind = fn_end_ind + 32
-                    file_name = res[8:fn_end_ind]
+                    file_name = res[8:fn_end_ind].decode()
                     file_size = int(res[fn_end_ind:fs_end_ind], 2)
 
                     # Get File Data
@@ -173,15 +172,15 @@ def main():
                         if not data:
                             break
 
-                        file_data = file_data + data.decode()
+                        file_data = file_data + data
                         missing_file_size = file_size - len(file_data)
     
                     # Send file_data
                     # - Read and Send Segmented File Line by Line
-                    with open(file_name, "w") as file:
+                    with open(file_name, "wb") as file:
                         file.write(file_data)
                 
-                res_status = "was successfully" if res_code == "001" else "failed to be"
+                res_status = "was successfully" if res_code == b"001" else "failed to be"
                 print(f"{file_name} {res_status} downloaded!\n")
 
             # Send Change Request to Rename File on Server
@@ -200,8 +199,8 @@ def main():
 
                 old_file_name = parsed_cmd[1]
                 new_file_name = parsed_cmd[2]
-                old_file_len = len(old_file_name) + 1
-                new_file_len = len(new_file_name) + 1
+                old_file_len = len(old_file_name)
+                new_file_len = len(new_file_name)
 
                 # Request: opcode old_file_len old_file_name new_file_len new_file_name
                 # Create Request Msg
@@ -228,9 +227,8 @@ def main():
 
             # Send Help Request to Get List of Commands from Server 
             elif cmd == "help":
-                opcode = "011"
-
                 # Request: opcode unused (1 Byte)
+                opcode = "011"
                 req_str = opcode + "00000"
                 req = req_str.encode()
                 s.send(req)
@@ -249,8 +247,7 @@ def main():
                 debug_res(res)
 
                 msg_data = res[8:]
-                print(msg_data)
-                print()
+                print(msg_data, end="\n\n")
             # Break Connection with Server and Exit
             elif cmd == "bye":
                 # Close Socket and Break
