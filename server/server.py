@@ -3,15 +3,37 @@
 # Purpose: Simulate FTP Service (Serverside Code)
 # Statement: Nicholas Kawwas is the Sole Author
 
-from os.path import exists, getsize
+from sys import argv
 from os import rename
+from os.path import exists, getsize
 from socket import socket, AF_INET6, SOCK_STREAM 
+
+# Specify IP Address and Port as First and Second Command Line Arguments
+# Note - argv[1]: IP Address, argv[2]: Port
+HOSTNAME = "127.0.0.1" if len(argv) < 2 else argv[1]
+PORT = 65432 if len(argv) < 3 else int(argv[2])
+
+# Specify Debug Mode as Third/Last Command Line Argument 
+# Debug Mode: Off (0) - No Printing, On (1) - Printing Msgs Sent and Received
+# Note - argv[3]: Debug Mode (Default 0)
+DEBUG_MODE = 0 if len(argv) < 4 else int(argv[3])
+
+# Accept Client Connection
+def accept_conn(socket, connection_no):
+    connection, _ = socket.accept()
+    connection_no += 1
+    print(f"Client Connection #{connection_no} Accepted!\n")
+    return connection, connection_no
+
+# Close Client Connection
+def close_conn(socket, connection_no):
+    socket.close()
+    print(f"Client Connection #{connection_no} Closed!\n")
 
 # Main Function Called in Script
 def main():
-    # TODO: Specify Server Port in Command Line Argument for Server
-    # Set Hostname and Port Variables
-    HOSTNAME, PORT = "127.0.0.1", 65432
+    # Determine Client Connection Number
+    conn_num = 0
 
     # Initialize Socket using AF_INET6 and SOCK_STREAM to Specify IPv6 and TCP Respectively 
     s = socket(AF_INET6, SOCK_STREAM)
@@ -26,9 +48,8 @@ def main():
 
         # Accept Client Connection
         conn, addr = s.accept()
-        print("Client Connection Accepted!\n")
+        print(f"Client Connection #{conn_num} Accepted!\n")
 
-        # with connection as c: 
         while True:
             # Receive HTTP Get Request from Client Connection/Browser
             data = conn.recv(1024)
@@ -36,10 +57,11 @@ def main():
             # Close Old Connnection and Allow New Connection with Another Client
             if not data:
                 conn.close()
-                print("Client Connection Closed!")
+                print(f"Client Connection #{conn_num} Closed!\n")
 
                 conn, addr = s.accept()
-                print("New Client Connection Accepted!")
+                conn_num += 1
+                print(f"Client Connection #{conn_num} Accepted!\n")
                 continue
             
             # Opcode Represented by First 3 Bits
@@ -53,7 +75,7 @@ def main():
 
                 # File Name End Index: File Name Length Plus First Byte
                 # File Size End Index: Four Bytes Reserved for File Size Plus File Name End Index
-                fn_end_ind = file_name_len + 7
+                fn_end_ind = file_name_len + 7 #8
                 fs_end_ind = fn_end_ind + 32
                 
                 # Get File Name from Bits 8:FL + 8

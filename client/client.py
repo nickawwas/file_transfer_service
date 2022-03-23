@@ -38,6 +38,16 @@ def debug_res(res):
     if DEBUG_MODE:
         print("Response:", res)
 
+# Calculate and Format File Name Length to 5 Bits
+def get_filename_len(file_name):
+    fl = len(file_name)
+    return f'{fl:05b}'
+
+# Calculate and Format File Size to 32 Bits
+def get_file_size(file_name):
+    fs = getsize(file_name)
+    return f'{fs:032b}'
+
 # Main Function Called in Script
 def main():
     # Initialize Socket using AF_INET6 and SOCK_STREAM to Specify IPv6 and TCP Respectively 
@@ -78,7 +88,7 @@ def main():
                     write_err_msg("No File with Provided Name on Client!\n")
                     continue
                 
-                file_len = len(file_name) + 1
+                file_len = len(file_name)
                 file_size = getsize(file_name)
 
                 # Create Request Msg
@@ -88,8 +98,7 @@ def main():
                 # Request: opcode file_len file_name file_size
                 s.send(req)
 
-                if DEBUG_MODE:
-                    print("Request:", req_str)
+                debug_req(req_str)
                 
                 # Send file_data
                 # - Read and Send Segmented File Line by Line
@@ -98,7 +107,7 @@ def main():
                     for line in lines:
                         file_data = line.encode()
                         s.send(file_data)
-        
+
                 # Receive Response from Server
                 # 1024 Represents Buffer Size in Bytes
                 data = s.recv(1024)
@@ -107,13 +116,10 @@ def main():
                 # Get Status Code
                 res_code = res[0:3]
 
-                if DEBUG_MODE:
-                    print("Response:", res)
-                    print()
+                debug_res(res)
                 
                 res_status = "was successfully" if res_code == "000" else "failed to be"
                 print(f"{file_name} {res_status} uploaded!\n")
-
             # Send Get Request to Transfer File from Server to Client
             elif cmd == "get":
                 opcode =  "001"
@@ -125,7 +131,7 @@ def main():
                     continue
 
                 file_name = parsed_cmd[1]
-                file_len = len(file_name) + 1
+                file_len = len(file_name)
 
                 # Request: opcode file_len file_name
                 # Create Request Msg
@@ -135,17 +141,14 @@ def main():
                 # Request: opcode file_len file_name file_size
                 s.send(req)
 
-                if DEBUG_MODE:
-                    print("Request:", req_str)
+                debug_req(req_str)
 
                 # Receive Response from Server
                 # 1024 Represents Buffer Size in Bytes
                 data = s.recv(1024)
                 res = data.decode()
 
-                if DEBUG_MODE:
-                    print("Response:", res)
-                    print()
+                debug_res(res)
 
                 # Get Status Code
                 res_code = res[0:3]
@@ -208,6 +211,8 @@ def main():
                 # Request: opcode file_len file_name file_size
                 s.send(req)
 
+                debug_req(req_str)
+
                 # Receive Response from Server
                 # 1024 Represents Buffer Size in Bytes
                 data = s.recv(1024)
@@ -216,9 +221,7 @@ def main():
                 # Get Status Code
                 res_code = res[0:3]
 
-                if DEBUG_MODE:
-                    print("Response:", res)
-                    print()
+                debug_res(res)
 
                 res_status = "was successfully" if res_code == "000" else "failed to be"
                 print(f"{old_file_name} {res_status} changed to {new_file_name}!\n")
@@ -232,8 +235,7 @@ def main():
                 req = req_str.encode()
                 s.send(req)
 
-                if DEBUG_MODE:
-                    print("Request:", req_str)
+                debug_req(req_str)
 
                 # Receive Response from Server
                 # 1024 Represents Buffer Size in Bytes
@@ -244,9 +246,7 @@ def main():
                 res_code = res[0:3]
                 msg_len = res[3:8]
 
-                if DEBUG_MODE:
-                    print("Response:", res)
-                    print()
+                debug_res(res)
 
                 msg_data = res[8:]
                 print(msg_data)
