@@ -3,8 +3,8 @@
 # Purpose: Simulate FTP Service (Serverside Code)
 # Statement: Nicholas Kawwas is the Sole Author
 
-from sys import argv
 from os import rename
+from sys import stdout, argv
 from os.path import exists, getsize
 from socket import socket, AF_INET6, SOCK_STREAM 
 
@@ -16,7 +16,15 @@ PORT = 65432 if len(argv) < 3 else int(argv[2])
 # Specify Debug Mode as Third/Last Command Line Argument 
 # Debug Mode: Off (0) - No Printing, On (1) - Printing Msgs Sent and Received
 # Note - argv[3]: Debug Mode (Default 0)
-DEBUG_MODE = 1 if len(argv) < 4 else int(argv[3])
+DEBUG_MODE = 0 if len(argv) < 4 else int(argv[3])
+
+# Print Warning Message with Different Colors
+RESET = '\033[0;0m'
+WARNING = '\033[1;31m'
+def write_err_msg(msg):
+    stdout.write(WARNING)
+    print(f'Error - {msg}')
+    stdout.write(RESET)
 
 # Print Debug Request
 def debug_req(req):
@@ -55,43 +63,37 @@ def get_file_name(req, fl):
     # Convert Binary to Decimal Then Add Byte Offset
     # -> File Name Starts After First Byte
     fn_end_ind = int(fl, 2) + 8              
-    file_name = req[8:fn_end_ind]
+    file_name = req[8:fn_end_ind].decode()
     return file_name, fn_end_ind
 
 # Get File Size from Request
-def get_fs_bits(req, fl):
+def get_file_size(req, fn_end_ind):
     # Calculate End Index to Extract File Name
     # Convert Binary to Decimal Then Add Byte Offset
-    # -> File Name Starts After First Byte
-    fn_end_ind = int(fl, 2) + 8              
-    file_name = req[8:fn_end_ind]
-    return file_name, fn_end_ind
+    # -> File Name Starts After End of File Name
+    fs_end_ind = fn_end_ind + 32             
+    file_size = int(req[fn_end_ind:fs_end_ind], 2)
+    return file_size, fs_end_ind
 
+# Get New File Name from Change Request
+def get_new_file_name(req, ofn_end_ind):
+    # Calculate End Index to Extract New File Name
+    # Convert Binary to Decimal Then Add Byte Offset
+    # -> File Name Starts After End of Old File Name
+    nfl_start_ind = ofn_end_ind + 8
+    new_file_len = int(req[ofn_end_ind:nfl_start_ind], 2)
 
-# TODO...
-# Get File Data from Put Request
-def get_file_data(conn, current_file_data, fs):
-    # Attempt to Access File Data from Received Msg
-    file_data = current_file_data
+    nfn_end_ind = nfl_start_ind + new_file_len    
+    new_file_name = req[nfl_start_ind:nfn_end_ind].decode()
+    return new_file_name
 
-    # Calculate Amount of File Missing
-    # Loop Until All File Data is Received
-    missing_file_size = fs - len(file_data)
-    while missing_file_size > 0:
-        # Wait for Data and Update Amount of File Missing
-        data = conn.recv(1024)
-
-        if not data:
-            break
-
-        file_data = file_data + data.decode()
-        missing_file_size = fs - len(file_data)
-    
-    return file_data
+# Validation - Check if File Name Matches with Critical Files
+def is_critical_file(new_name, old_name):
+    return "server.py" in [new_name, old_name]
 
 # Format Decimal to Binary String
-def format_bin(num):
-    return f'{num:05b}'
+def format_bin(val, bits):
+    return f'{val:0{bits}b}'
 
 # Generate 1 Byte Long Response with Res Code and Unused Bits
 def gen_byte_res(res_code):
@@ -111,6 +113,44 @@ def gen_help_res():
     res = res_code +  f'{help_data_len:05b}' + help_data
     return res.encode()
 
+# Send Response and Print Debug Msg
+def send_res(conn, res):
+    conn.send(res)
+    debug_res(res)
+
+# TODO: Fix Read and Write Binary
+# Get Missing File Data to Receive Whole File
+def get_missing_file_data(conn, file_size, file_data):
+    # Calculate Amount of File Missing
+    missing_file_size = file_size - len(file_data)
+
+    # Loop until Whole File Received (Missing = 0)
+    while missing_file_size > 0:
+        # Wait for Data and Update Amount of File Missing
+        data = conn.recv(1024)
+        if not data:
+            break
+
+        # Add Incoming Data to File
+        file_data += data
+
+        # Reevalute Amount of Data Missing
+        missing_file_size = file_size - len(file_data)
+
+    return file_data
+
+# Read Binary from File, Send Line By Line
+def read_bin_send(conn, file_name):
+    with open(file_name, "rb") as file:
+        lines = file.readlines()
+        for line in lines:
+            send_res(conn, line)
+
+# Write Binary to File, Received Line By Line
+def write_bin_receive(conn, file_name, file_data):
+    with open(file_name, "wb") as file:
+            file.write(file_data)
+
 # Main Function
 def main():
     # Initialize Socket using AF_INET6 and SOCK_STREAM to Specify IPv6 and TCP Respectively 
@@ -119,6 +159,7 @@ def main():
     try:
         # Bind Hostname and Port Number to Socket as 127.0.0.1:65432
         s.bind((HOSTNAME, PORT))
+        print("Server Running on Specified Hostname and Port Number! \n")
 
         # Open TCP Socket, Listening for Connections on 127.0.0.1:65432
         s.listen()
@@ -137,73 +178,61 @@ def main():
                 conn, conn_num = accept_conn(s, conn_num)
                 continue
             
-            # Decode Request and Extract Opcode Bits
-            req = data #.decode()
-            opcode = get_opcode_bits(req)
-            print("Opcode", opcode)
+            # Extract Opcode Bits
+            opcode = get_opcode_bits(data)
 
-            debug_req(req)
+            debug_req(data)
 
             # Respond to Put Request with Transfer File from Client to Server
             if opcode == b'000':
-                fl_bits = get_fl_bits(req)
-                file_name_len = int(fl_bits, 2)
+                fl_bits = get_fl_bits(data)
 
-                # File Name End Index: File Name Length Plus First Byte
-                # File Size End Index: Four Bytes Reserved for File Size Plus File Name End Index
-                fn_end_ind = file_name_len + 8
-                fs_end_ind = fn_end_ind + 32
-
-                
                 # Get File Name from Bits 8:FL + 8
-                file_name = req[8:fn_end_ind].decode()
-                file_size = int(req[fn_end_ind:fs_end_ind], 2)
-
-                print("File Name", file_name)
-                print("File Size", file_size)
+                # File Name End Index: File Name Length Plus First Byte
+                file_name, fn_end_ind = get_file_name(data, fl_bits)
+                
+                # Get File Size from Bits FL + 8: FL + 8 + 32
+                # File Size End Index: Four Bytes Reserved for File Size Plus File Name End Index
+                file_size, fs_end_ind = get_file_size(data, fn_end_ind)
 
                 #Attempt to Access File Data from Received Msg
-                file_data = req[fs_end_ind:]
+                file_data = data[fs_end_ind:]
 
                 # Calculate Amount of File Missing
-                # Loop Until All File Data is Received
                 missing_file_size = file_size - len(file_data)
+
+                # Loop Until All File Data is Received
                 while missing_file_size > 0:
                     # Wait for Data and Update Amount of File Missing
                     data = conn.recv(1024)
-
                     if not data:
                         break
-
-                    print(data)
-
+                    
+                    # Add Incoming Data to File, Line by Line
                     file_data = file_data + data
                     missing_file_size = file_size - len(file_data)
 
-                # Write to File
+                # Write to File in Binary to Avoid Encoding Issues (Especially for PDF and PNG)
                 with open(file_name, "wb") as file:
                     file.write(file_data)
                 
                 # Response Code (0b000) Specifies Correct Put and Change Requests
                 res = gen_byte_res("000")
-                conn.send(res)
+                send_res(conn, res)
             # Respond to Get Request with Transfer File from Server to Client
             elif opcode == b'001':
                 # Get File Length (FL) from Bits 3:8 in Binary (Convert to Decimal)
-                file_name_len = get_fl_bits(req)
+                fl_bits = get_fl_bits(data)
 
-                # File Name End Index: File Name Length Plus First Byte
-                # File Size End Index: Four Bytes Reserved for File Size Plus File Name End Index
-                fn_end_ind = int(file_name_len, 2) + 8
-                
                 # Get File Name from Bits 8:FL + 8
-                file_name = req[8:fn_end_ind].decode()
-
+                # File Name End Index: File Name Length Plus First Byte
+                file_name, fn_end_ind = get_file_name(data, fl_bits)
+    
                 # Check if File Exists
                 if not exists(file_name):
                     # Response Code (0b010) Specifies File Not Found Error 
                     res = gen_byte_res("010")
-                    conn.send(res)
+                    send_res(conn, res)
                     continue
 
                 file_size = getsize(file_name)
@@ -211,9 +240,9 @@ def main():
                 # Response: opcode file_len file_name file_size
                 # Response Code (0b001) Specifies Correct Get Request
                 res_code = "001"
-                res_str = res_code + file_name_len.decode() + file_name + f'{file_size:032b}'
+                res_str = res_code + fl_bits.decode() + file_name + format_bin(file_size, 32)
                 res = res_str.encode()
-                conn.send(res)
+                send_res(conn, res)
 
                 # Response File: file_data
                 with open(file_name, "rb") as file:
@@ -224,31 +253,28 @@ def main():
             # Respond to Change Request with Rename File on Server
             elif opcode == b'010':
                 # Get Old File Name using Old File Length from Request 
-                old_file_len = get_fl_bits(req)
+                old_fl_bits = get_fl_bits(data)
 
-                ofn_end_ind = int(old_file_len, 2) + 8              
-                old_file_name = req[8:ofn_end_ind]
+                # Get File Name from Bits 8:FL + 8
+                # File Name End Index: File Name Length Plus First Byte
+                old_file_name, ofn_end_ind = get_file_name(data, old_fl_bits)
 
                 # Error Validation: File with Old Name Doesn't Exist
                 if not exists(old_file_name):
                     # Response Code (0b010) Specifies File Not Found Error 
                     res = gen_byte_res("010")
-                    conn.send(res)
+                    send_res(conn, res)
                     continue
 
-                # Get New File Name using New File Length from Request 
-                nfl_end_ind = ofn_end_ind + 8         
-                new_file_len = req[ofn_end_ind:nfl_end_ind] 
-
-                nfn_end_ind = ofn_end_ind + int(new_file_len, 2) + 8            
-                new_file_name = req[nfl_end_ind:nfn_end_ind]
+                # Get New File Name using New File Length from Request
+                new_file_name = get_new_file_name(data, ofn_end_ind)
                 
                 # Error Validation: File with New Name Already Exists
-                # TODO: Or Old/New File Name is server.py 
-                if exists(new_file_name) or old_file_name == "server.py":
+                # Or New/Old File Name Represent a Critical File (Avoid Overwritting)
+                if exists(new_file_name) or is_critical_file(new_file_name, old_file_name):
                     # Response Code (0b101) Specifies Unsuccessful Change
                     res = gen_byte_res("101")
-                    conn.send(res)
+                    send_res(conn, res)
                     continue
 
                 # Rename File
@@ -256,16 +282,16 @@ def main():
 
                 # Response Code (0b000) Specifies Correct Change Request
                 res = gen_byte_res("000")
-                conn.send(res)
+                send_res(conn, res)
             # Respond to Help Request with Get List of Commands from Server 
             elif opcode == b'011':
                 res = gen_help_res()
-                conn.send(res)
+                send_res(conn, res)
             # Respond to Unknown Request
             else:
                 # Response Code (0b011) Specifies Unknown Request
                 res = gen_byte_res("011")
-                conn.send(res)
+                send_res(conn, res)
 
     except KeyboardInterrupt:
         # Close Socket on Keyboard Interrupt
@@ -273,7 +299,7 @@ def main():
     
     except Exception as e:
         # Catch Other Exceptions
-        print("\nError:", e)
+        write_err_msg(e)
 
 
 # Script Starting Point

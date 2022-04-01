@@ -38,15 +38,26 @@ def debug_res(res):
     if DEBUG_MODE:
         print("Response:", res)
 
+# Format Decimal to Binary String
+def format_bin(val, bits):
+    return f'{val:0{bits}b}'
+
 # Calculate and Format File Name Length to 5 Bits
 def get_filename_len(file_name):
     fl = len(file_name)
-    return f'{fl:05b}'
+    return format_bin(fl, 5)
 
+# TODO: FIX
 # Calculate and Format File Size to 32 Bits
 def get_file_size(file_name):
     fs = getsize(file_name)
-    return f'{fs:032b}'
+
+    # Check if File Size Exceeds Max Value Given 32 Bits Allocated
+    exceeds_max = fs > (2**32 - 1)
+    if exceeds_max:
+        write_err_msg("File Size Exceeds Max Value from 32 Bits Allocated!")
+
+    return format_bin(fs, 32), exceeds_max
 
 # Main Function Called in Script
 def main():
@@ -88,18 +99,33 @@ def main():
                     write_err_msg("No File with Provided Name on Client!\n")
                     continue
                 
+                # Get File Length
+                # Check if File Name Length Exceeds Max Value Given 5 Bits Allocated
                 file_len = len(file_name)
+                if file_len > (2**5 - 1):
+                    write_err_msg("File Name Exceeds Max Value from 5 Bits Allocated!")
+                    continue
+
+                file_bits = format_bin(file_len, 5)
+
                 file_size = getsize(file_name)
 
+                # TODO: Check File Size 
+                # Check if File Size Exceeds Max Value Given 32 Bits Allocated
+                if file_size > (2**32 - 1):
+                    write_err_msg("File Size Exceeds Max Value from 32 Bits Allocated!")
+                    continue
+
+                fs_bits = format_bin(file_size, 32)
+
                 # Create Request Msg
-                req_str = opcode + f'{file_len:05b}' + file_name + f'{file_size:032b}'
+                req_str = opcode + file_bits + file_name + fs_bits
                 req = req_str.encode()
                 
                 # Request: opcode file_len file_name file_size
                 s.send(req)
-
                 debug_req(req_str)
-                
+
                 # Send file_data
                 # - Read and Send Segmented File Line by Line
                 with open(file_name, "rb") as file:
@@ -119,6 +145,8 @@ def main():
                 
                 res_status = "was successfully" if res_code == "000" else "failed to be"
                 print(f"{file_name} {res_status} uploaded!\n")
+
+                # TODO: Print Failed Output 
             # Send Get Request to Transfer File from Server to Client
             elif cmd == "get":
                 opcode =  "001"
@@ -132,6 +160,11 @@ def main():
                 file_name = parsed_cmd[1]
                 file_len = len(file_name)
 
+                # Check if File Name Length Exceeds Max Value Given 5 Bits Allocated
+                if file_len > (2**5 - 1):
+                    write_err_msg("File Name Exceeds Max Value from 5 Bits Allocated!")
+                    continue
+
                 # Request: opcode file_len file_name
                 # Create Request Msg
                 req_str = opcode + f'{file_len:05b}' + file_name
@@ -144,9 +177,7 @@ def main():
 
                 # Receive Response from Server
                 # 1024 Represents Buffer Size in Bytes
-                data = s.recv(1024)
-                res = data #.decode()
-
+                res = s.recv(1024)
                 debug_res(res)
 
                 # Get Status Code
@@ -183,6 +214,8 @@ def main():
                 res_status = "was successfully" if res_code == b"001" else "failed to be"
                 print(f"{file_name} {res_status} downloaded!\n")
 
+                #TODO: print file not found error for 0b010
+
             # Send Change Request to Rename File on Server
             elif cmd == "change":
                 # Old File Name Specifies Name of File to Change
@@ -201,6 +234,8 @@ def main():
                 new_file_name = parsed_cmd[2]
                 old_file_len = len(old_file_name)
                 new_file_len = len(new_file_name)
+
+                # TODO: CHECK file name lengths don't exceed allocated 5 and 8 bits
 
                 # Request: opcode old_file_len old_file_name new_file_len new_file_name
                 # Create Request Msg
@@ -225,6 +260,8 @@ def main():
                 res_status = "was successfully" if res_code == "000" else "failed to be"
                 print(f"{old_file_name} {res_status} changed to {new_file_name}!\n")
 
+                # TODO: print Response Code (0b101) Specifies Unsuccessful Change and file not foudn for 0b010
+
             # Send Help Request to Get List of Commands from Server 
             elif cmd == "help":
                 # Request: opcode unused (1 Byte)
@@ -247,7 +284,7 @@ def main():
                 debug_res(res)
 
                 msg_data = res[8:]
-                print(msg_data, end="\n\n")
+                print(msg_data + "\n")
             # Break Connection with Server and Exit
             elif cmd == "bye":
                 # Close Socket and Break
@@ -264,7 +301,7 @@ def main():
     
     except Exception as e:
         # Catch Other Exceptions
-        print("Error: ", e)
+        write_err_msg(e)
 
 # Script Starting Point
 if __name__ == '__main__':
