@@ -1,7 +1,9 @@
-# Nicholas Kawwas (40124338)
-# COEN 366 Section WJ-X
-# Purpose: Simulate FTP Service (Serverside Code)
-# Statement: Nicholas Kawwas is the Sole Author
+'''
+Nicholas Kawwas (40124338)
+COEN 366 Section WJ-X
+Purpose: Simulate FTP Service (Serverside Code)
+Statement: Nicholas Kawwas is the Sole Author
+'''
 
 from os import rename
 from sys import stdout, argv
@@ -110,7 +112,7 @@ def gen_help_res():
     help_data_len = len(help_data)
 
     # Request: opcode help_data_len help_data
-    res = res_code +  f'{help_data_len:05b}' + help_data
+    res = res_code +  format_bin(help_data_len, 5) + help_data
     return res.encode()
 
 # Send Response and Print Debug Msg
@@ -119,26 +121,6 @@ def send_res(conn, res):
     debug_res(res)
 
 # TODO: Fix Read and Write Binary
-# Get Missing File Data to Receive Whole File
-def get_missing_file_data(conn, file_size, file_data):
-    # Calculate Amount of File Missing
-    missing_file_size = file_size - len(file_data)
-
-    # Loop until Whole File Received (Missing = 0)
-    while missing_file_size > 0:
-        # Wait for Data and Update Amount of File Missing
-        data = conn.recv(1024)
-        if not data:
-            break
-
-        # Add Incoming Data to File
-        file_data += data
-
-        # Reevalute Amount of Data Missing
-        missing_file_size = file_size - len(file_data)
-
-    return file_data
-
 # Read Binary from File, Send Line By Line
 def read_bin_send(conn, file_name):
     with open(file_name, "rb") as file:
@@ -198,11 +180,8 @@ def main():
                 #Attempt to Access File Data from Received Msg
                 file_data = data[fs_end_ind:]
 
-                # Calculate Amount of File Missing
-                missing_file_size = file_size - len(file_data)
-
-                # Loop Until All File Data is Received
-                while missing_file_size > 0:
+                # Calculate Amount of File Missing - Loop Until All File Data is Received
+                while file_size - len(file_data) > 0:
                     # Wait for Data and Update Amount of File Missing
                     data = conn.recv(1024)
                     if not data:
@@ -210,7 +189,6 @@ def main():
                     
                     # Add Incoming Data to File, Line by Line
                     file_data = file_data + data
-                    missing_file_size = file_size - len(file_data)
 
                 # Write to File in Binary to Avoid Encoding Issues (Especially for PDF and PNG)
                 with open(file_name, "wb") as file:
