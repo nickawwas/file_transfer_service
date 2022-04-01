@@ -32,12 +32,24 @@ server/ directory contains all the files on the server machine, including the se
 
 ```
 cd server/
-python3 server.py
 ```
 
-TODO: Write instructions with ip port debug mode
+> Running the serverside code can be done by specifying the ip address, port number and debug mode status flag
 
-Note: Must Start Serverside Code Before Clientside Code
+```
+# Usage Format
+p3 server.py ip_address port_number debug_mode
+
+# Specifying None Defaults to 127.0.0.1:65432 with Debug Mode Disabled (0)
+p3 server.py
+
+# Specifying Some or All Fields Overrides Defaults
+p3 server.py 127.0.0.1
+p3 server.py 127.0.0.1 65432
+p3 server.py 127.0.0.1 65432 1
+```
+
+Note: Must Start Serverside Code Before Clientside Code ...
 
 > Server must be listening and waiting for client connection
 >
@@ -55,8 +67,24 @@ client/ directory contains all the files on the client machine
 
 ```
 cd client/
-python3 client.py
 ```
+
+> Running the clientside code can be done by specifying the ip address, port number and debug mode status flag
+
+```
+# Usage Format
+p3 client.py ip_address port_number debug_mode
+
+# Specifying None Defaults to 127.0.0.1:65432 with Debug Mode Disabled (0)
+p3 client.py
+
+# Specifying All Fields Overrides Defaults
+p3 client.py 127.0.0.1
+p3 client.py 127.0.0.1 65432
+p3 client.py 127.0.0.1 65432 1
+```
+
+Note: IP Address and Port Number Must Match the Ones Specified ...
 
 > Client Socket Then Initialized \
 > Client Socket Connects to Server Side Socket using Same Hostname and Port
@@ -65,8 +93,6 @@ python3 client.py
 > Server Receives and Deserializes Data to then Create, Serialize, and Send a Response to Client
 
 > Client Receives and Deserializes Data, Receiving a Response for a Given Request
-
-TODO: Write instructions with ip port debug mode
 
 ### Step 4: Enter the Commands in Client Terminal
 
@@ -88,3 +114,8 @@ help
 # Closes Client Connection
 bye
 ```
+
+### [Optional] Step 5: End Client Session and Open New Session
+
+> Ending session ...
+> Server accepts new session ...
