@@ -1,14 +1,13 @@
-# Nicholas Kawwas (40124338)
-# COEN 366 Section WJ-X
-# Purpose: Simulate FTP Service (Clientside code)
-# Statement: Nicholas Kawwas is the Sole Author
+'''
+Nicholas Kawwas (40124338)
+COEN 366 Section WJ-X
+Purpose: Simulate FTP Service (Clientside code)
+Statement: Nicholas Kawwas is the Sole Author
+'''
 
 from os.path import exists, getsize
 from sys import stdout, argv
 from socket import socket, AF_INET6, SOCK_STREAM
-
-# TODO: Make Functions to Clean Up Code, Write Report 
-# -> Fix Images and PDF by adding b to rb and wb to read and write the contents of the file in binary (no decoding necessary) 
 
 # Specify IP Address and Port as First and Second Command Line Arguments
 # Note - argv[1]: IP Address, argv[2]: Port
@@ -50,7 +49,7 @@ def get_filename_len(file_name, num_bits=5):
     # Determine If File Name Exceeds Number Bits Used to Represent File in Request
     has_overflow = fl >  2**(num_bits) - 1
     if has_overflow:
-        write_err_msg(f"File Size Exceeds Max Value from {num_bits} Bits Allocated!")
+        write_err_msg(f"Filename Length Exceeds Max Value for {num_bits} Bits Allocated in Request!\n")
 
     return fl_bstr, has_overflow
 
@@ -62,17 +61,9 @@ def get_file_size(file_name):
     # Determine If File Size Exceeds Number Bits Used to Represent File in Request
     has_overflow = fs > 2**32 - 1
     if has_overflow:
-        write_err_msg(f"File Size Exceeds Max Value from 32 Bits Allocated!")
+        write_err_msg(f"File Size Exceeds Max Value for 32 Bits Allocated in Request!\n")
 
     return fs_bstr, has_overflow
-
-# Get Response Code from Response in Binary
-def get_rescode(res):
-    return res[0:3]
-
-# Get Length from Response in Binary
-def get_res_len(res):
-    return res[3:8]
 
 # Generate 1 Byte Long Request with Opcode and Unused Bits
 def gen_byte_req(opcode):
@@ -80,17 +71,21 @@ def gen_byte_req(opcode):
     req = opcode + "00000"
     return req.encode()
 
+# Get Response Code from Response in Binary
+def get_rescode(res):
+    return res[0:3]
+
 # Print Server Response to Client from Command/Request
 def print_server_res(res_code, file_name, action_type, optional_fname=""):
     # Determine Response - Success or Failed
-    if res_code == "000":
+    if res_code == b'000' or res_code == b'001':
         res_status = "was successfully" 
     else:
         res_status = "failed to be"
 
-        if res_code == "010":
+        if res_code == b'010':
             err_type = "File Not Found."
-        elif res_code == "101":
+        elif res_code == b'101':
             err_type = "Unsuccessful Change."
         else:
             err_type = "Unknown Request."
@@ -165,8 +160,7 @@ def main():
 
                 # Receive Response from Server
                 # 1024 Represents Buffer Size in Bytes
-                data = s.recv(1024)
-                res = data.decode()
+                res = s.recv(1024)
                 debug_res(res)
 
                 # Get Status Code
@@ -207,16 +201,20 @@ def main():
 
                 # Get Status Code
                 res_code = get_rescode(res)
-                file_name_len = int(res[3:8], 2)# NOTE:
-
                 if res_code == b"001":
-                    fn_end_ind = file_name_len + 8# NOTE:
-                    fs_end_ind = fn_end_ind + 32# NOTE:
-                    file_name = res[8:fn_end_ind].decode()# NOTE:
-                    file_size = int(res[fn_end_ind:fs_end_ind], 2)# NOTE:
+                    # Get File Name from Response 
+                    file_name_len = int(res[3:8], 2)
+                    
+                    # Get File Name from Response
+                    fn_end_ind = file_name_len + 8
+                    file_name = res[8:fn_end_ind].decode()
+                    
+                    # Get File Size from Response
+                    fs_end_ind = fn_end_ind + 32
+                    file_size = int(res[fn_end_ind:fs_end_ind], 2)
 
                     # Get File Data
-                    file_data = res[fs_end_ind:]# NOTE:
+                    file_data = res[fs_end_ind:]
 
                     # Calculate Amount of File Missing
                     # Loop Until All File Data is Received
@@ -234,8 +232,7 @@ def main():
                         file.write(file_data)
                 
                 # Print Server Response - Success or Failed
-                print_server_res(res_code.decode(), file_name, "downloaded") # NOTE: Change res to binary for all of them
-
+                print_server_res(res_code, file_name, "downloaded")
             # Send Change Request to Rename File on Server
             elif cmd == "change":
                 # 0b010 Represents Change Command
@@ -270,15 +267,14 @@ def main():
 
                 # Receive Response from Server
                 # 1024 Represents Buffer Size in Bytes
-                data = s.recv(1024)
-                res = data.decode()
+                res = s.recv(1024)
                 debug_res(res)
 
                 # Get Status Code
                 res_code = get_rescode(res)
 
                 # Print Server Response - Success or Failed
-                print_server_res(res_code, old_file_name, "changed", new_file_name)
+                print_server_res(res_code, old_file_name, "changed to", new_file_name)
             # Send Help Request to Get List of Commands from Server 
             elif cmd == "help":
                 # 0b011 Represent Help Command
@@ -286,20 +282,19 @@ def main():
 
                 # Request: opcode unused (1 Byte)
                 s.send(req)
-                debug_req(req_str)
+                debug_req(req)
 
                 # Receive Response from Server
                 # 1024 Represents Buffer Size in Bytes
-                data = s.recv(1024)
-                res = data.decode()
+                res = s.recv(1024)
                 debug_res(res)
 
                 # Get Status Code
                 res_code = get_rescode(res)
-                msg_len = res[3:8] # NOTE:
+                msg_len = res[3:8]
 
                 # Print Response
-                msg_data = res[8:] # NOTE:
+                msg_data = res[8:].decode()
                 print(msg_data + "\n")
             # Break Connection with Server and Exit
             elif cmd == "bye":

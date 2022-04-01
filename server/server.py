@@ -120,19 +120,6 @@ def send_res(conn, res):
     conn.send(res)
     debug_res(res)
 
-# TODO: Fix Read and Write Binary
-# Read Binary from File, Send Line By Line
-def read_bin_send(conn, file_name):
-    with open(file_name, "rb") as file:
-        lines = file.readlines()
-        for line in lines:
-            send_res(conn, line)
-
-# Write Binary to File, Received Line By Line
-def write_bin_receive(conn, file_name, file_data):
-    with open(file_name, "wb") as file:
-            file.write(file_data)
-
 # Main Function
 def main():
     # Initialize Socket using AF_INET6 and SOCK_STREAM to Specify IPv6 and TCP Respectively 
@@ -160,10 +147,10 @@ def main():
                 conn, conn_num = accept_conn(s, conn_num)
                 continue
             
+            debug_req(data)
+            
             # Extract Opcode Bits
             opcode = get_opcode_bits(data)
-
-            debug_req(data)
 
             # Respond to Put Request with Transfer File from Client to Server
             if opcode == b'000':
