@@ -138,7 +138,7 @@ def main():
         conn, conn_num = accept_conn(s, 0)
 
         while True:
-            # Receive HTTP Get Request from Client Connection/Browser
+            # Receive Request from Client Connection
             data = conn.recv(1024)
 
             # Close Old Connnection and Allow New Connection with Another Client

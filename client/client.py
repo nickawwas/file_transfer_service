@@ -149,7 +149,7 @@ def main():
                 
                 # Request: opcode file_len file_name file_size
                 s.send(req)
-                debug_req(req_str)
+                debug_req(req)
 
                 # File Data Specifies Data in File Sent as Chunks of Data
                 # Send file_data by reading and segmenting file line by line
@@ -157,6 +157,7 @@ def main():
                     lines = file.readlines()
                     for line in lines:
                         s.send(line)
+                        print(line)
 
                 # Receive Response from Server
                 # 1024 Represents Buffer Size in Bytes
@@ -192,7 +193,7 @@ def main():
                 
                 # Request: opcode file_len file_name file_size
                 s.send(req)
-                debug_req(req_str)
+                debug_req(req)
 
                 # Receive Response from Server
                 # 1024 Represents Buffer Size in Bytes
@@ -263,7 +264,7 @@ def main():
                 req_str = opcode + old_fl_bits + old_file_name + new_fl_bits + new_file_name
                 req = req_str.encode()
                 s.send(req)
-                debug_req(req_str)
+                debug_req(req)
 
                 # Receive Response from Server
                 # 1024 Represents Buffer Size in Bytes
