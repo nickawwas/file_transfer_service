@@ -1,8 +1,17 @@
 # File Transfer Service
 
-Simulated the file transfer protocol (FTP) over TCP sockets using a client-server architecture in Python
+Simulated the file transfer protocol (FTP) over TCP sockets using a client-server architecture in Python \
+Performed unit testing by mocking standard input and output for each command
 
 ## Usage
+
+### Step 0: Move Test Files into Either Client or Server Directory
+
+Setup client and server machines with initial files
+
+server/ directory represents the server machine, containing all the files on the server machine
+
+client/ directory represents the client machine, containing all the files on the client machine
 
 ### Step 1: Open Two Terminals Sessions - One for Client, Another for Server
 

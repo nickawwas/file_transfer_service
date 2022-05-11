@@ -37,6 +37,7 @@ def debug_req(req):
 def debug_res(res):
     if DEBUG_MODE:
         print("Response:", res)
+        print()
 
 # Accept Client Connection
 # Returns Connection and Connection Number

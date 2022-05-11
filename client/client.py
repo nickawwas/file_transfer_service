@@ -157,7 +157,6 @@ def main():
                     lines = file.readlines()
                     for line in lines:
                         s.send(line)
-                        print(line)
 
                 # Receive Response from Server
                 # 1024 Represents Buffer Size in Bytes
